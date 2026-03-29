@@ -294,7 +294,7 @@ function parseResults() {
   } else if (data.data && data.data.type === 'user' && data.data.attributes) {
     if (data.data.attributes.google_id !== undefined) {
       // FORMAT: Patreon API v1
-      parseV1(data.data.attributes, idBox, memBox, extBox);
+      parseV1(data.data.attributes, idBox, memBox, extBox, data.included || []);
     } else {
       // FORMAT: Patreon API v2
       parseV2(data, idBox, memBox, extBox);
@@ -372,13 +372,16 @@ function parseWebhookData(data, idBox, memBox, extBox, korBox) {
   });
 }
 
-function parseV1(a, idBox, memBox, extBox) {
+function parseV1(a, idBox, memBox, extBox, included) {
   addRow(idBox, 'Email', a.email || 'N/A', true);
   addRow(idBox, 'Nom complet', a.full_name || 'N/A', true);
   addRow(idBox, 'Prenom', a.first_name || 'N/A');
   addRow(idBox, 'Photo', a.image_url || 'N/A');
+  addRow(idBox, 'URL', a.url || 'N/A');
   addRow(idBox, 'Compte cree', a.created || 'N/A');
   addRow(idBox, 'Email verifie', String(a.is_email_verified));
+  addRow(idBox, 'can_see_nsfw', String(a.can_see_nsfw), a.can_see_nsfw ? true : false);
+
   addSeparator(extBox);
   addRow(extBox, 'Google ID', a.google_id || 'null', true);
   addRow(extBox, 'has_password', String(a.has_password), true);
@@ -389,9 +392,90 @@ function parseV1(a, idBox, memBox, extBox) {
   addRow(extBox, 'Supprime', String(a.is_deleted));
   addRow(extBox, 'Suspendu', String(a.is_suspended));
   addRow(extBox, 'Nuked', String(a.is_nuked));
+
+  // Social connections
   if (a.social_connections) {
     addSeparator(extBox);
-    addRow(extBox, 'Connexions sociales', Object.keys(a.social_connections).filter(function(k) { return a.social_connections[k] !== null; }).join(', ') || 'Aucune');
+    var sc = a.social_connections;
+    Object.keys(sc).forEach(function(platform) {
+      if (sc[platform] !== null && sc[platform]) {
+        var info = sc[platform];
+        var detail = info.user_id || info.url || '';
+        if (info.scopes && info.scopes.length) detail += ' (scopes: ' + info.scopes.join(', ') + ')';
+        addRow(extBox, platform, detail || 'connecte', true);
+      }
+    });
+  }
+
+  // Parse included array (campaigns, pledges, rewards, goals, users)
+  if (included && included.length) {
+    var campaigns = {};
+    var pledges = {};
+    var rewards = {};
+    var goals = {};
+
+    included.forEach(function(inc) {
+      if (inc.type === 'campaign') campaigns[inc.id] = inc.attributes;
+      if (inc.type === 'pledge') pledges[inc.id] = inc.attributes;
+      if (inc.type === 'reward') rewards[inc.id] = inc.attributes;
+      if (inc.type === 'goal') goals[inc.id] = inc.attributes;
+    });
+
+    // Show campaigns
+    Object.keys(campaigns).forEach(function(cid) {
+      var c = campaigns[cid];
+      addRow(memBox, 'Campagne', c.creation_name || 'Campagne #' + cid);
+      if (c.patron_count !== undefined) addRow(memBox, 'Patrons', String(c.patron_count));
+      if (c.paid_member_count !== undefined) addRow(memBox, 'Membres payants', String(c.paid_member_count));
+      if (c.pledge_sum !== undefined) addRow(memBox, 'Pledge total', (c.pledge_sum / 100) + ' EUR', true);
+      if (c.discord_server_id) addRow(memBox, 'Discord Server', c.discord_server_id, true);
+      if (c.is_nsfw !== undefined) addRow(memBox, 'NSFW', String(c.is_nsfw));
+      addSeparator(memBox);
+    });
+
+    // Show pledges
+    Object.keys(pledges).forEach(function(pid) {
+      var p = pledges[pid];
+      addRow(memBox, 'Pledge actif', (p.amount_cents / 100) + ' EUR', true);
+      addRow(memBox, 'Date pledge', p.created_at || 'N/A');
+      if (p.total_historical_amount_cents) addRow(memBox, 'Total historique', (p.total_historical_amount_cents / 100) + ' EUR', true);
+      if (p.is_paused !== undefined) addRow(memBox, 'En pause', String(p.is_paused));
+      // Find linked reward
+      var rewardRel = null;
+      included.forEach(function(inc) {
+        if (inc.type === 'pledge' && inc.id === pid && inc.relationships && inc.relationships.reward && inc.relationships.reward.data) {
+          rewardRel = inc.relationships.reward.data.id;
+        }
+      });
+      if (rewardRel && rewards[rewardRel]) {
+        addRow(memBox, 'Reward tier', rewards[rewardRel].title || rewards[rewardRel].description || 'Tier #' + rewardRel);
+        if (rewards[rewardRel].amount_cents) addRow(memBox, 'Tier prix', (rewards[rewardRel].amount_cents / 100) + ' EUR');
+      }
+      // Find linked campaign via creator
+      var creatorRel = null;
+      included.forEach(function(inc) {
+        if (inc.type === 'pledge' && inc.id === pid && inc.relationships && inc.relationships.creator && inc.relationships.creator.data) {
+          creatorRel = inc.relationships.creator.data.id;
+        }
+      });
+      if (creatorRel) {
+        included.forEach(function(inc) {
+          if (inc.type === 'user' && inc.id === creatorRel) {
+            addRow(memBox, 'Createur', inc.attributes.full_name || inc.attributes.first_name || 'User #' + creatorRel, true);
+            if (inc.attributes.url) addRow(memBox, 'Profil createur', inc.attributes.url);
+          }
+        });
+      }
+      addSeparator(memBox);
+    });
+
+    // Show goals
+    Object.keys(goals).forEach(function(gid) {
+      var g = goals[gid];
+      addRow(memBox, 'Goal', g.title || g.description || 'Goal #' + gid);
+      if (g.amount_cents) addRow(memBox, 'Objectif', (g.amount_cents / 100) + ' EUR');
+      if (g.completed_percentage !== undefined) addRow(memBox, 'Progres', g.completed_percentage + '%');
+    });
   }
 }
 
