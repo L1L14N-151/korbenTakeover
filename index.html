@@ -397,9 +397,9 @@ function callAPI(version) {
     box.style.color = '';
     addRow(box, 'Erreur CORS', 'Le navigateur bloque la requete cross-origin vers Patreon');
     addSeparator(box);
-    addRow(box, 'curl API v2', 'curl -s -H "Authorization: Bearer ' + token + '" "https://www.patreon.com/api/oauth2/v2/identity?include=memberships,memberships.campaign&fields[user]=email,full_name,image_url,created,vanity&fields[member]=patron_status,currently_entitled_amount_cents&fields[campaign]=creation_name"');
+    addRow(box, 'curl API v2', "curl -s -H 'Authorization: Bearer " + token + "' 'https://www.patreon.com/api/oauth2/v2/identity?include=memberships,memberships.campaign&fields%5Buser%5D=email,full_name,image_url,created,vanity&fields%5Bmember%5D=patron_status,currently_entitled_amount_cents&fields%5Bcampaign%5D=creation_name'");
     addSeparator(box);
-    addRow(box, 'curl API v1', 'curl -s -H "Authorization: Bearer ' + token + '" "https://www.patreon.com/api/oauth2/api/current_user"');
+    addRow(box, 'curl API v1', "curl -s -H 'Authorization: Bearer " + token + "' 'https://www.patreon.com/api/oauth2/api/current_user'");
   });
 }
 
