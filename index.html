@@ -255,6 +255,8 @@ function clearResults() {
 function parseResults() {
   var raw = document.getElementById('raw-data').value.trim();
   if (!raw) return;
+  // Clean trailing % (terminal artifact)
+  if (raw.endsWith('%')) raw = raw.slice(0, -1);
 
   var data;
   try { data = JSON.parse(raw); } catch(e) {
@@ -279,6 +281,12 @@ function parseResults() {
   extBox.textContent = '';
   korBox.textContent = '';
 
+  // Normalize: if raw user object without {"data":...} wrapper
+  if (data.id && data.type === 'user' && data.attributes) {
+    data = { data: data, included: data.included || [] };
+    delete data.data.included;
+  }
+
   // Detect format
   if (data.korben_patreon_auth) {
     // FORMAT: webhook localStorage exfil
@@ -287,11 +295,8 @@ function parseResults() {
     if (data.data.attributes.google_id !== undefined) {
       // FORMAT: Patreon API v1
       parseV1(data.data.attributes, idBox, memBox, extBox);
-    } else if (data.included) {
-      // FORMAT: Patreon API v2
-      parseV2(data, idBox, memBox, extBox);
     } else {
-      // FORMAT: Patreon API v2 sans included
+      // FORMAT: Patreon API v2
       parseV2(data, idBox, memBox, extBox);
     }
   } else {
